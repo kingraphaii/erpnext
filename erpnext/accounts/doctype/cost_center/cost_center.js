@@ -15,17 +15,6 @@ frappe.ui.form.on('Cost Center', {
 				}
 			}
 		});
-
-		frm.set_query("cost_center", "distributed_cost_center", function() {
-			return {
-				filters: {
-					company: frm.doc.company,
-					is_group: 0,
-					enable_distributed_cost_center: 0,
-					name: ['!=', frm.doc.name]
-				}
-			};
-		});
 	},
 	refresh: function(frm) {
 		if (!frm.is_new()) {
@@ -81,7 +70,7 @@ frappe.ui.form.on('Cost Center', {
 				}
 			],
 			primary_action: function() {
-				var data = d.get_values();
+				let data = d.get_values();
 				if(data.cost_center_name === frm.doc.cost_center_name && data.cost_center_number === frm.doc.cost_center_number) {
 					d.hide();
 					return;
@@ -102,8 +91,8 @@ frappe.ui.form.on('Cost Center', {
 							if(r.message) {
 								frappe.set_route("Form", "Cost Center", r.message);
 							} else {
-								me.frm.set_value("cost_center_name", data.cost_center_name);
-								me.frm.set_value("cost_center_number", data.cost_center_number);
+								frm.set_value("cost_center_name", data.cost_center_name);
+								frm.set_value("cost_center_number", data.cost_center_number);
 							}
 							d.hide();
 						}

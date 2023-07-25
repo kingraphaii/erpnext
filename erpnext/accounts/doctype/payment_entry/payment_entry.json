@@ -19,6 +19,7 @@
   "party_type",
   "party",
   "party_name",
+  "book_advance_payments_in_separate_party_account",
   "column_break_11",
   "bank_account",
   "party_bank_account",
@@ -27,10 +28,12 @@
   "payment_accounts_section",
   "party_balance",
   "paid_from",
+  "paid_from_account_type",
   "paid_from_account_currency",
   "paid_from_account_balance",
   "column_break_18",
   "paid_to",
+  "paid_to_account_type",
   "paid_to_account_currency",
   "paid_to_account_balance",
   "payment_amounts_section",
@@ -46,7 +49,8 @@
   "base_received_amount",
   "base_received_amount_after_tax",
   "section_break_14",
-  "get_outstanding_invoice",
+  "get_outstanding_invoices",
+  "get_outstanding_orders",
   "references",
   "section_break_34",
   "total_allocated_amount",
@@ -59,13 +63,14 @@
   "taxes_and_charges_section",
   "purchase_taxes_and_charges_template",
   "sales_taxes_and_charges_template",
-  "advance_tax_account",
   "column_break_55",
   "apply_tax_withholding_amount",
   "tax_withholding_category",
   "section_break_56",
   "taxes",
+  "section_break_60",
   "base_total_taxes_and_charges",
+  "column_break_61",
   "total_taxes_and_charges",
   "deductions_or_loss_section",
   "deductions",
@@ -236,7 +241,7 @@
    "depends_on": "paid_from",
    "fieldname": "paid_from_account_currency",
    "fieldtype": "Link",
-   "label": "Account Currency",
+   "label": "Account Currency (From)",
    "options": "Currency",
    "print_hide": 1,
    "read_only": 1,
@@ -246,7 +251,7 @@
    "depends_on": "paid_from",
    "fieldname": "paid_from_account_balance",
    "fieldtype": "Currency",
-   "label": "Account Balance",
+   "label": "Account Balance (From)",
    "options": "paid_from_account_currency",
    "print_hide": 1,
    "read_only": 1
@@ -269,7 +274,7 @@
    "depends_on": "paid_to",
    "fieldname": "paid_to_account_currency",
    "fieldtype": "Link",
-   "label": "Account Currency",
+   "label": "Account Currency (To)",
    "options": "Currency",
    "print_hide": 1,
    "read_only": 1,
@@ -279,7 +284,7 @@
    "depends_on": "paid_to",
    "fieldname": "paid_to_account_balance",
    "fieldtype": "Currency",
-   "label": "Account Balance",
+   "label": "Account Balance (To)",
    "options": "paid_to_account_currency",
    "print_hide": 1,
    "read_only": 1
@@ -301,7 +306,8 @@
   {
    "fieldname": "source_exchange_rate",
    "fieldtype": "Float",
-   "label": "Exchange Rate",
+   "label": "Source Exchange Rate",
+   "precision": "9",
    "print_hide": 1,
    "reqd": 1
   },
@@ -330,7 +336,8 @@
   {
    "fieldname": "target_exchange_rate",
    "fieldtype": "Float",
-   "label": "Exchange Rate",
+   "label": "Target Exchange Rate",
+   "precision": "9",
    "print_hide": 1,
    "reqd": 1
   },
@@ -349,12 +356,6 @@
    "fieldname": "section_break_14",
    "fieldtype": "Section Break",
    "label": "Reference"
-  },
-  {
-   "depends_on": "eval:doc.docstatus==0",
-   "fieldname": "get_outstanding_invoice",
-   "fieldtype": "Button",
-   "label": "Get Outstanding Invoice"
   },
   {
    "fieldname": "references",
@@ -440,7 +441,8 @@
    "depends_on": "eval:(doc.paid_from && doc.paid_to)",
    "fieldname": "reference_no",
    "fieldtype": "Data",
-   "label": "Cheque/Reference No"
+   "label": "Cheque/Reference No",
+   "mandatory_depends_on": "eval:(doc.paid_from_account_type == 'Bank' || doc.paid_to_account_type == 'Bank')"
   },
   {
    "fieldname": "column_break_23",
@@ -452,6 +454,7 @@
    "fieldname": "reference_date",
    "fieldtype": "Date",
    "label": "Cheque/Reference Date",
+   "mandatory_depends_on": "eval:(doc.paid_from_account_type == 'Bank' || doc.paid_to_account_type == 'Bank')",
    "search_index": 1
   },
   {
@@ -626,14 +629,14 @@
    "depends_on": "eval:doc.party_type == 'Supplier'",
    "fieldname": "purchase_taxes_and_charges_template",
    "fieldtype": "Link",
-   "label": "Taxes and Charges Template",
+   "label": "Purchase Taxes and Charges Template",
    "options": "Purchase Taxes and Charges Template"
   },
   {
    "depends_on": "eval: doc.party_type == 'Customer'",
    "fieldname": "sales_taxes_and_charges_template",
    "fieldtype": "Link",
-   "label": "Taxes and Charges Template",
+   "label": "Sales Taxes and Charges Template",
    "options": "Sales Taxes and Charges Template"
   },
   {
@@ -667,6 +670,7 @@
   {
    "fieldname": "base_paid_amount_after_tax",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Paid Amount After Tax (Company Currency)",
    "options": "Company:company:default_currency",
    "read_only": 1
@@ -681,36 +685,76 @@
    "hide_border": 1
   },
   {
-   "depends_on": "eval:doc.apply_tax_withholding_amount",
-   "description": "Provisional tax account for advance tax. Taxes are parked in this account until payments are allocated to invoices",
-   "fieldname": "advance_tax_account",
-   "fieldtype": "Link",
-   "label": "Advance Tax Account",
-   "mandatory_depends_on": "eval:doc.apply_tax_withholding_amount",
-   "options": "Account"
-  },
-  {
    "depends_on": "eval:doc.received_amount && doc.payment_type != 'Internal Transfer'",
    "fieldname": "received_amount_after_tax",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Received Amount After Tax",
-   "options": "paid_to_account_currency"
+   "options": "paid_to_account_currency",
+   "read_only": 1
   },
   {
    "depends_on": "doc.received_amount",
    "fieldname": "base_received_amount_after_tax",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Received Amount After Tax (Company Currency)",
-   "options": "Company:company:default_currency"
+   "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "paid_from.account_type",
+   "fieldname": "paid_from_account_type",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Paid From Account Type"
+  },
+  {
+   "fetch_from": "paid_to.account_type",
+   "fieldname": "paid_to_account_type",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Paid To Account Type"
+  },
+  {
+   "fieldname": "column_break_61",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_60",
+   "fieldtype": "Section Break",
+   "hide_border": 1
+  },
+  {
+   "depends_on": "eval:doc.docstatus==0",
+   "fieldname": "get_outstanding_invoices",
+   "fieldtype": "Button",
+   "label": "Get Outstanding Invoices"
+  },
+  {
+   "depends_on": "eval:doc.docstatus==0",
+   "fieldname": "get_outstanding_orders",
+   "fieldtype": "Button",
+   "label": "Get Outstanding Orders"
+  },
+  {
+   "default": "0",
+   "fetch_from": "company.book_advance_payments_in_separate_party_account",
+   "fieldname": "book_advance_payments_in_separate_party_account",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Book Advance Payments in Separate Party Account",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2021-06-22 20:37:06.154206",
+ "modified": "2023-06-23 18:07:38.023010",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Payment Entry",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {
@@ -749,6 +793,7 @@
  "show_name_in_global_search": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "title_field": "title",
  "track_changes": 1
 }

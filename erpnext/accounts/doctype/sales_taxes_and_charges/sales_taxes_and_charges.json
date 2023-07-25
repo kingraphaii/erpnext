@@ -19,7 +19,7 @@
   "section_break_8",
   "rate",
   "section_break_9",
-  "currency",
+  "account_currency",
   "tax_amount",
   "total",
   "tax_amount_after_discount_amount",
@@ -27,7 +27,8 @@
   "base_tax_amount",
   "base_total",
   "base_tax_amount_after_discount_amount",
-  "item_wise_tax_detail"
+  "item_wise_tax_detail",
+  "dont_recompute_tax"
  ],
  "fields": [
   {
@@ -50,6 +51,7 @@
    "oldfieldtype": "Data"
   },
   {
+   "allow_on_submit": 1,
    "columns": 2,
    "fieldname": "account_head",
    "fieldtype": "Link",
@@ -62,6 +64,7 @@
    "search_index": 1
   },
   {
+   "allow_on_submit": 1,
    "default": ":Company",
    "fieldname": "cost_center",
    "fieldtype": "Link",
@@ -186,32 +189,42 @@
    "fieldtype": "Column Break"
   },
   {
-   "fetch_from": "account_head.account_currency",
-   "fieldname": "currency",
-   "fieldtype": "Link",
-   "label": "Account Currency",
-   "options": "Currency",
-   "read_only": 1
-  },
-  {
    "default": "0",
    "depends_on": "eval:['Sales Taxes and Charges Template', 'Payment Entry'].includes(parent.doctype)",
    "description": "If checked, the tax amount will be considered as already included in the Paid Amount in Payment Entry",
    "fieldname": "included_in_paid_amount",
    "fieldtype": "Check",
    "label": "Considered In Paid Amount"
+  },
+  {
+   "default": "0",
+   "fieldname": "dont_recompute_tax",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Dont Recompute tax",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fetch_from": "account_head.account_currency",
+   "fieldname": "account_currency",
+   "fieldtype": "Link",
+   "label": "Account Currency",
+   "options": "Currency",
+   "read_only": 1
   }
  ],
  "idx": 1,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2021-06-14 01:44:36.899147",
+ "modified": "2022-10-17 13:08:17.776528",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Sales Taxes and Charges",
  "owner": "Administrator",
  "permissions": [],
  "sort_field": "modified",
- "sort_order": "ASC"
+ "sort_order": "ASC",
+ "states": []
 }

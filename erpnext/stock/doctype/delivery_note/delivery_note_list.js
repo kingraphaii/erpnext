@@ -24,7 +24,7 @@ frappe.listview_settings['Delivery Note'] = {
 					if (!doc.docstatus) {
 						frappe.throw(__("Cannot create a Delivery Trip from Draft documents."));
 					}
-				};
+				}
 
 				frappe.new_doc("Delivery Trip")
 					.then(() => {
@@ -51,9 +51,19 @@ frappe.listview_settings['Delivery Note'] = {
 							}
 						});
 					})
-			};
+			}
 		};
 
-		doclist.page.add_actions_menu_item(__('Create Delivery Trip'), action, false);
+		// doclist.page.add_actions_menu_item(__('Create Delivery Trip'), action, false);
+
+		doclist.page.add_action_item(__('Create Delivery Trip'), action);
+
+		doclist.page.add_action_item(__("Sales Invoice"), ()=>{
+			erpnext.bulk_transaction_processing.create(doclist, "Delivery Note", "Sales Invoice");
+		});
+
+		doclist.page.add_action_item(__("Packaging Slip From Delivery Note"), ()=>{
+			erpnext.bulk_transaction_processing.create(doclist, "Delivery Note", "Packing Slip");
+		});
 	}
-};
+}

@@ -159,6 +159,12 @@
 					}
 				}
 
+				.item-img {
+					@extend .image;
+					border-radius: 8px 8px 0 0;
+					object-fit: cover;
+				}
+
 				> .item-detail {
 					display: flex;
 					flex-direction: column;
@@ -493,6 +499,11 @@
 						padding: var(--padding-sm) 0px;
 						font-weight: 500;
 						font-size: var(--text-md);
+					}
+
+					> .item-qty-total-container {
+						@extend .net-total-container;
+						padding: 5px 0px 0px 0px;
 					}
 
 					> .taxes-container {
@@ -860,6 +871,8 @@
 
 				.invoice-fields {
 					overflow-y: scroll;
+					height: 100%;
+					padding-right: var(--padding-sm);
 				}
 			}
 

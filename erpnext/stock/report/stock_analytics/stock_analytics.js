@@ -1,6 +1,6 @@
 // Copyright (c) 2016, Frappe Technologies Pvt. Ltd. and contributors
 // For license information, please see license.txt
-/* eslint-disable */
+
 
 frappe.query_reports["Stock Analytics"] = {
 	"filters": [
@@ -37,11 +37,25 @@ frappe.query_reports["Stock Analytics"] = {
 			default: "",
 		},
 		{
+			fieldname: "company",
+			label: __("Company"),
+			fieldtype: "Link",
+			options: "Company",
+			default: frappe.defaults.get_user_default("Company"),
+			reqd: 1,
+		},
+		{
 			fieldname: "warehouse",
 			label: __("Warehouse"),
 			fieldtype: "Link",
-			options:"Warehouse",
+			options: "Warehouse",
 			default: "",
+			get_query: function() {
+				const company = frappe.query_report.get_filter_value('company');
+				return {
+					filters: { 'company': company }
+				}
+			}
 		},
 		{
 			fieldname: "from_date",
@@ -79,11 +93,11 @@ frappe.query_reports["Stock Analytics"] = {
 			checkboxColumn: true,
 			events: {
 				onCheckRow: function(data) {
-					row_name = data[2].content;
-					row_values = data.slice(7).map(function (column) {
+					let row_name = data[2].content;
+					let row_values = data.slice(7).map(function (column) {
 						return column.content;
 					})
-					entry  = {
+					let entry  = {
 						'name':row_name,
 						'values':row_values
 					}

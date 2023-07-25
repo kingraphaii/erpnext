@@ -6,17 +6,18 @@
  "engine": "InnoDB",
  "field_order": [
   "item_code",
-  "item_name",
-  "material_request_type",
   "from_warehouse",
   "warehouse",
-  "column_break_4",
-  "required_bom_qty",
-  "quantity",
-  "uom",
-  "projected_qty",
+  "item_name",
+  "material_request_type",
   "actual_qty",
   "ordered_qty",
+  "required_bom_qty",
+  "column_break_4",
+  "quantity",
+  "uom",
+  "conversion_factor",
+  "projected_qty",
   "reserved_qty_for_production",
   "safety_stock",
   "item_details",
@@ -28,6 +29,7 @@
  ],
  "fields": [
   {
+   "columns": 2,
    "fieldname": "item_code",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -41,19 +43,21 @@
    "label": "Item Name"
   },
   {
+   "columns": 2,
    "fieldname": "warehouse",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Warehouse",
+   "label": "For Warehouse",
    "options": "Warehouse",
    "reqd": 1
   },
   {
+   "columns": 1,
    "fieldname": "material_request_type",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Material Request Type",
+   "label": "Type",
    "options": "\nPurchase\nMaterial Transfer\nMaterial Issue\nManufacture\nCustomer Provided"
   },
   {
@@ -61,10 +65,11 @@
    "fieldtype": "Column Break"
   },
   {
+   "columns": 1,
    "fieldname": "quantity",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Required Quantity",
+   "label": "Plan to Request Qty",
    "no_copy": 1,
    "reqd": 1
   },
@@ -75,11 +80,12 @@
    "read_only": 1
   },
   {
+   "columns": 2,
    "default": "0",
    "fieldname": "actual_qty",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Actual Qty",
+   "label": "Available Qty",
    "no_copy": 1,
    "read_only": 1
   },
@@ -157,16 +163,24 @@
    "read_only": 1
   },
   {
+   "columns": 2,
    "fieldname": "required_bom_qty",
    "fieldtype": "Float",
-   "label": "Required Qty as per BOM",
+   "in_list_view": 1,
+   "label": "Qty As Per BOM",
    "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "conversion_factor",
+   "fieldtype": "Float",
+   "label": "Conversion Factor",
    "read_only": 1
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2021-03-26 12:41:13.013149",
+ "modified": "2023-05-03 12:43:29.895754",
  "modified_by": "Administrator",
  "module": "Manufacturing",
  "name": "Material Request Plan Item",
@@ -175,5 +189,6 @@
  "quick_entry": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }

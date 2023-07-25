@@ -14,6 +14,14 @@ frappe.ui.form.on('Asset Value Adjustment', {
 				}
 			}
 		});
+		frm.set_query('asset', function() {
+			return {
+				filters: {
+					calculate_depreciation: 1,
+					docstatus: 1
+				}
+			};
+		});
 	},
 
 	onload: function(frm) {
@@ -39,9 +47,9 @@ frappe.ui.form.on('Asset Value Adjustment', {
 	set_current_asset_value: function(frm) {
 		if (frm.doc.asset) {
 			frm.call({
-				method: "erpnext.assets.doctype.asset_value_adjustment.asset_value_adjustment.get_current_asset_value",
+				method: "erpnext.assets.doctype.asset.asset.get_asset_value_after_depreciation",
 				args: {
-					asset: frm.doc.asset,
+					asset_name: frm.doc.asset,
 					finance_book: frm.doc.finance_book
 				},
 				callback: function(r) {

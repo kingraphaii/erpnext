@@ -1,6 +1,6 @@
 // Copyright (c) 2016, Frappe Technologies Pvt. Ltd. and contributors
 // For license information, please see license.txt
-/* eslint-disable */
+
 
 frappe.query_reports["Electronic Invoice Register"] = {
 	"filters": [
@@ -41,7 +41,7 @@ frappe.query_reports["Electronic Invoice Register"] = {
 
 			var w = window.open(
 				frappe.urllib.get_full_url(
-					"/api/method/erpnext.regional.italy.utils.export_invoices?" 
+					"/api/method/erpnext.regional.italy.utils.export_invoices?"
 					+ "filters=" + JSON.stringify(reportview.get_filter_values())
 				)
 			);

@@ -58,9 +58,8 @@ frappe.query_reports["General Ledger"] = {
 		{
 			"fieldname":"party_type",
 			"label": __("Party Type"),
-			"fieldtype": "Link",
-			"options": "Party Type",
-			"default": "",
+			"fieldtype": "Autocomplete",
+			options: Object.keys(frappe.boot.party_account_types),
 			on_change: function() {
 				frappe.query_report.set_filter_value('party', "");
 			}
@@ -110,9 +109,26 @@ frappe.query_reports["General Ledger"] = {
 			"fieldname":"group_by",
 			"label": __("Group by"),
 			"fieldtype": "Select",
-			"options": ["", __("Group by Voucher"), __("Group by Voucher (Consolidated)"),
-				__("Group by Account"), __("Group by Party")],
-			"default": __("Group by Voucher (Consolidated)")
+			"options": [
+				"",
+				{
+					label: __("Group by Voucher"),
+					value: "Group by Voucher",
+				},
+				{
+					label: __("Group by Voucher (Consolidated)"),
+					value: "Group by Voucher (Consolidated)",
+				},
+				{
+					label: __("Group by Account"),
+					value: "Group by Account",
+				},
+				{
+					label: __("Group by Party"),
+					value: "Group by Party",
+				},
+			],
+			"default": "Group by Voucher (Consolidated)"
 		},
 		{
 			"fieldname":"tax_id",
@@ -150,7 +166,7 @@ frappe.query_reports["General Ledger"] = {
 			"fieldname": "include_dimensions",
 			"label": __("Consider Accounting Dimensions"),
 			"fieldtype": "Check",
-			"default": 0
+			"default": 1
 		},
 		{
 			"fieldname": "show_opening_entries",
@@ -160,7 +176,8 @@ frappe.query_reports["General Ledger"] = {
 		{
 			"fieldname": "include_default_book_entries",
 			"label": __("Include Default Book Entries"),
-			"fieldtype": "Check"
+			"fieldtype": "Check",
+			"default": 1
 		},
 		{
 			"fieldname": "show_cancelled_entries",
@@ -176,4 +193,3 @@ frappe.query_reports["General Ledger"] = {
 }
 
 erpnext.utils.add_dimensions('General Ledger', 15)
-

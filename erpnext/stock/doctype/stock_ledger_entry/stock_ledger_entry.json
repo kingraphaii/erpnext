@@ -15,9 +15,10 @@
   "voucher_type",
   "voucher_no",
   "voucher_detail_no",
+  "serial_and_batch_bundle",
   "dependant_sle_voucher_detail_no",
-  "recalculate_rate",
   "section_break_11",
+  "recalculate_rate",
   "actual_qty",
   "qty_after_transaction",
   "incoming_rate",
@@ -31,12 +32,14 @@
   "company",
   "stock_uom",
   "project",
-  "batch_no",
   "column_break_26",
   "fiscal_year",
-  "serial_no",
+  "has_batch_no",
+  "has_serial_no",
   "is_cancelled",
-  "to_rename"
+  "to_rename",
+  "serial_no",
+  "batch_no"
  ],
  "fields": [
   {
@@ -142,6 +145,7 @@
    "oldfieldtype": "Data",
    "print_width": "150px",
    "read_only": 1,
+   "search_index": 1,
    "width": "150px"
   },
   {
@@ -149,7 +153,7 @@
    "fieldtype": "Float",
    "in_filter": 1,
    "in_list_view": 1,
-   "label": "Actual Quantity",
+   "label": "Qty Change",
    "oldfieldname": "actual_qty",
    "oldfieldtype": "Currency",
    "print_width": "150px",
@@ -188,7 +192,7 @@
    "fieldname": "qty_after_transaction",
    "fieldtype": "Float",
    "in_filter": 1,
-   "label": "Actual Qty After Transaction",
+   "label": "Qty After Transaction",
    "oldfieldname": "bin_aqat",
    "oldfieldtype": "Currency",
    "print_width": "150px",
@@ -209,7 +213,7 @@
   {
    "fieldname": "stock_value",
    "fieldtype": "Currency",
-   "label": "Stock Value",
+   "label": "Balance Stock Value",
    "oldfieldname": "stock_value",
    "oldfieldtype": "Currency",
    "options": "Company:company:default_currency",
@@ -218,14 +222,14 @@
   {
    "fieldname": "stock_value_difference",
    "fieldtype": "Currency",
-   "label": "Stock Value Difference",
+   "label": "Change in Stock Value",
    "options": "Company:company:default_currency",
    "read_only": 1
   },
   {
    "fieldname": "stock_queue",
    "fieldtype": "Text",
-   "label": "Stock Queue (FIFO)",
+   "label": "FIFO Stock Queue (qty, rate)",
    "oldfieldname": "fcfs_stack",
    "oldfieldtype": "Text",
    "print_hide": 1,
@@ -308,6 +312,27 @@
    "label": "Recalculate Incoming/Outgoing Rate",
    "no_copy": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "serial_and_batch_bundle",
+   "fieldtype": "Link",
+   "label": "Serial and Batch Bundle",
+   "options": "Serial and Batch Bundle",
+   "search_index": 1
+  },
+  {
+   "default": "0",
+   "fetch_from": "item_code.has_batch_no",
+   "fieldname": "has_batch_no",
+   "fieldtype": "Check",
+   "label": "Has Batch No"
+  },
+  {
+   "default": "0",
+   "fetch_from": "item_code.has_serial_no",
+   "fieldname": "has_serial_no",
+   "fieldtype": "Check",
+   "label": "Has Serial No"
   }
  ],
  "hide_toolbar": 1,
@@ -316,10 +341,11 @@
  "in_create": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2020-09-07 11:10:35.318872",
+ "modified": "2023-04-03 16:33:16.270722",
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Stock Ledger Entry",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -337,5 +363,6 @@
   }
  ],
  "sort_field": "modified",
- "sort_order": "DESC"
+ "sort_order": "DESC",
+ "states": []
 }

@@ -1,6 +1,6 @@
 // Copyright (c) 2016, Frappe Technologies Pvt. Ltd. and contributors
 // For license information, please see license.txt
-/* eslint-disable */
+
 
 frappe.query_reports["Purchase Order Analysis"] = {
 	"filters": [
@@ -30,7 +30,14 @@ frappe.query_reports["Purchase Order Analysis"] = {
 			"default": frappe.datetime.get_today()
 		},
 		{
-			"fieldname": "purchase_order",
+			"fieldname":"project",
+			"label": __("Project"),
+			"fieldtype": "Link",
+			"width": "80",
+			"options": "Project"
+		},
+		{
+			"fieldname": "name",
 			"label": __("Purchase Order"),
 			"fieldtype": "Link",
 			"width": "80",
@@ -52,6 +59,7 @@ frappe.query_reports["Purchase Order Analysis"] = {
 				for (let option of status){
 					options.push({
 						"value": option,
+						"label": __(option),
 						"description": ""
 					})
 				}

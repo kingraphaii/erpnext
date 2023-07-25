@@ -101,6 +101,7 @@
    "fieldtype": "Data",
    "hidden": 1,
    "label": "Mobile No",
+   "options": "Phone",
    "read_only": 1
   },
   {
@@ -108,6 +109,7 @@
    "fieldtype": "Data",
    "hidden": 1,
    "label": "Contact Email",
+   "options": "Email",
    "read_only": 1
   },
   {
@@ -179,8 +181,7 @@
    "label": "Purposes",
    "oldfieldname": "maintenance_visit_details",
    "oldfieldtype": "Table",
-   "options": "Maintenance Visit Purpose",
-   "reqd": 1
+   "options": "Maintenance Visit Purpose"
   },
   {
    "fieldname": "more_info",
@@ -294,10 +295,11 @@
  "idx": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2021-05-27 16:06:17.352572",
+ "modified": "2023-06-03 16:19:07.902723",
  "modified_by": "Administrator",
  "module": "Maintenance",
  "name": "Maintenance Visit",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {
@@ -319,6 +321,7 @@
  "show_name_in_global_search": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "timeline_field": "customer",
  "title_field": "customer_name"
 }

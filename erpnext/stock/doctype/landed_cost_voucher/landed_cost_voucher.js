@@ -1,10 +1,9 @@
 // Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 // License: GNU General Public License v3. See license.txt
 
-{% include 'erpnext/stock/landed_taxes_and_charges_common.js' %};
-
 frappe.provide("erpnext.stock");
 
+erpnext.landed_cost_taxes_and_charges.setup_triggers("Landed Cost Voucher");
 erpnext.stock.LandedCostVoucher = class LandedCostVoucher extends erpnext.stock.StockController {
 	setup() {
 		var me = this;
@@ -35,7 +34,7 @@ erpnext.stock.LandedCostVoucher = class LandedCostVoucher extends erpnext.stock.
 	refresh() {
 		var help_content =
 			`<br><br>
-			<table class="table table-bordered" style="background-color: #f9f9f9;">
+			<table class="table table-bordered" style="background-color: var(--scrollbar-track-color);">
 				<tr><td>
 					<h4>
 						<i class="fa fa-hand-right"></i>

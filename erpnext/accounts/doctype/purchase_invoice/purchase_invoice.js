@@ -2,7 +2,11 @@
 // License: GNU General Public License v3. See license.txt
 
 frappe.provide("erpnext.accounts");
-{% include 'erpnext/public/js/controllers/buying.js' %};
+
+erpnext.accounts.payment_triggers.setup("Purchase Invoice");
+erpnext.accounts.taxes.setup_tax_filters("Purchase Taxes and Charges");
+erpnext.accounts.taxes.setup_tax_validations("Purchase Invoice");
+erpnext.buying.setup_buying_controller();
 
 erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.BuyingController {
 	setup(doc) {
@@ -30,6 +34,9 @@ erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.
 	onload() {
 		super.onload();
 
+		// Ignore linked advances
+		this.frm.ignore_doctypes_on_cancel_all = ['Journal Entry', 'Payment Entry', 'Purchase Invoice', "Repost Payment Ledger"];
+
 		if(!this.frm.doc.__islocal) {
 			// show credit_to in print format
 			if(!this.frm.doc.supplier && this.frm.doc.credit_to) {
@@ -42,8 +49,6 @@ erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.
 		if (this.frm.doc.supplier && this.frm.doc.__islocal) {
 			this.frm.trigger('supplier');
 		}
-
-		erpnext.accounts.dimensions.setup_dimension_filters(this.frm, this.frm.doctype);
 	}
 
 	refresh(doc) {
@@ -53,9 +58,11 @@ erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.
 		hide_fields(this.frm.doc);
 		// Show / Hide button
 		this.show_general_ledger();
+		erpnext.accounts.ledger_preview.show_accounting_ledger_preview(this.frm);
 
-		if(doc.update_stock==1 && doc.docstatus==1) {
+		if(doc.update_stock==1) {
 			this.show_stock_ledger();
+			erpnext.accounts.ledger_preview.show_stock_ledger_preview(this.frm);
 		}
 
 		if(!doc.is_return && doc.docstatus == 1 && doc.outstanding_amount != 0){
@@ -80,8 +87,12 @@ erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.
 		}
 
 		if(doc.docstatus == 1 && doc.outstanding_amount != 0
-			&& !(doc.is_return && doc.return_against)) {
-			this.frm.add_custom_button(__('Payment'), this.make_payment_entry, __('Create'));
+			&& !(doc.is_return && doc.return_against) && !doc.on_hold) {
+			this.frm.add_custom_button(
+				__('Payment'),
+				() => this.make_payment_entry(),
+				__('Create')
+			);
 			cur_frm.page.set_inner_btn_group_as_primary(__('Create'));
 		}
 
@@ -98,7 +109,7 @@ erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.
 			}
 		}
 
-		if (doc.outstanding_amount > 0 && !cint(doc.is_return)) {
+		if (doc.outstanding_amount > 0 && !cint(doc.is_return) && !doc.on_hold) {
 			cur_frm.add_custom_button(__('Payment Request'), function() {
 				me.make_payment_request()
 			}, __('Create'));
@@ -134,14 +145,14 @@ erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.
 					},
 					get_query_filters: {
 						docstatus: 1,
-						status: ["not in", ["Closed", "Completed"]],
+						status: ["not in", ["Closed", "Completed", "Return Issued"]],
 						company: me.frm.doc.company,
 						is_return: 0
 					}
 				})
 			}, __("Get Items From"));
 		}
-		this.frm.toggle_reqd("supplier_warehouse", this.frm.doc.is_subcontracted==="Yes");
+		this.frm.toggle_reqd("supplier_warehouse", this.frm.doc.is_subcontracted);
 
 		if (doc.docstatus == 1 && !doc.inter_company_invoice_reference) {
 			frappe.model.with_doc("Supplier", me.frm.doc.supplier, function() {
@@ -276,6 +287,8 @@ erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.
 		if(this.frm.updating_party_details || this.frm.doc.inter_company_invoice_reference)
 			return;
 
+		if (this.frm.doc.__onload && this.frm.doc.__onload.load_after_mapping) return;
+
 		erpnext.utils.get_party_details(this.frm, "erpnext.accounts.party.get_party_details",
 			{
 				posting_date: this.frm.doc.posting_date,
@@ -283,7 +296,8 @@ erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.
 				party: this.frm.doc.supplier,
 				party_type: "Supplier",
 				account: this.frm.doc.credit_to,
-				price_list: this.frm.doc.buying_price_list
+				price_list: this.frm.doc.buying_price_list,
+				fetch_payment_terms_template: cint(!this.frm.doc.ignore_default_payment_terms_template)
 			}, function() {
 				me.apply_pricing_rule();
 				me.frm.doc.apply_tds = me.frm.supplier_tds ? 1 : 0;
@@ -295,7 +309,7 @@ erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.
 
 	apply_tds(frm) {
 		var me = this;
-
+		me.frm.set_value("tax_withheld_vouchers", []);
 		if (!me.frm.doc.apply_tds) {
 			me.frm.set_value("tax_withholding_category", '');
 			me.frm.set_df_property("tax_withholding_category", "hidden", 1);
@@ -365,7 +379,7 @@ erpnext.accounts.PurchaseInvoice = class PurchaseInvoice extends erpnext.buying.
 	items_add(doc, cdt, cdn) {
 		var row = frappe.get_doc(cdt, cdn);
 		this.frm.script_manager.copy_from_first_row("items", row,
-			["expense_account", "cost_center", "project"]);
+			["expense_account", "discount_account", "cost_center", "project"]);
 	}
 
 	on_submit() {
@@ -496,13 +510,34 @@ frappe.ui.form.on("Purchase Invoice", {
 	setup: function(frm) {
 		frm.custom_make_buttons = {
 			'Purchase Invoice': 'Return / Debit Note',
-			'Payment Entry': 'Payment'
+			'Payment Entry': 'Payment',
+			'Landed Cost Voucher': function () { frm.trigger('create_landed_cost_voucher') },
 		}
+
+		frm.set_query("additional_discount_account", function() {
+			return {
+				filters: {
+					company: frm.doc.company,
+					is_group: 0,
+					report_type: "Profit and Loss",
+				}
+			};
+		});
 
 		frm.fields_dict['items'].grid.get_field('deferred_expense_account').get_query = function(doc) {
 			return {
 				filters: {
 					'root_type': 'Asset',
+					'company': doc.company,
+					"is_group": 0
+				}
+			}
+		}
+
+		frm.fields_dict['items'].grid.get_field('discount_account').get_query = function(doc) {
+			return {
+				filters: {
+					'report_type': 'Profit and Loss',
 					'company': doc.company,
 					"is_group": 0
 				}
@@ -514,8 +549,28 @@ frappe.ui.form.on("Purchase Invoice", {
 		frm.events.add_custom_buttons(frm);
 	},
 
+	mode_of_payment: function(frm) {
+		erpnext.accounts.pos.get_payment_mode_account(frm, frm.doc.mode_of_payment, function(account) {
+			frm.set_value("cash_bank_account", account);
+		})
+	},
+
+	create_landed_cost_voucher: function (frm) {
+		let lcv = frappe.model.get_new_doc('Landed Cost Voucher');
+		lcv.company = frm.doc.company;
+
+		let lcv_receipt = frappe.model.get_new_doc('Landed Cost Purchase Invoice');
+		lcv_receipt.receipt_document_type = 'Purchase Invoice';
+		lcv_receipt.receipt_document = frm.doc.name;
+		lcv_receipt.supplier = frm.doc.supplier;
+		lcv_receipt.grand_total = frm.doc.grand_total;
+		lcv.purchase_receipts = [lcv_receipt];
+
+		frappe.set_route("Form", lcv.doctype, lcv.name);
+	},
+
 	add_custom_buttons: function(frm) {
-		if (frm.doc.per_received < 100) {
+		if (frm.doc.docstatus == 1 && frm.doc.per_received < 100) {
 			frm.add_custom_button(__('Purchase Receipt'), () => {
 				frm.events.make_purchase_receipt(frm);
 			}, __('Create'));
@@ -545,13 +600,18 @@ frappe.ui.form.on("Purchase Invoice", {
 		erpnext.queries.setup_queries(frm, "Warehouse", function() {
 			return erpnext.queries.warehouse(frm.doc);
 		});
+
+		if (frm.is_new()) {
+			frm.clear_table("tax_withheld_vouchers");
+		}
 	},
 
 	is_subcontracted: function(frm) {
-		if (frm.doc.is_subcontracted === "Yes") {
+		if (frm.doc.is_old_subcontracting_flow) {
 			erpnext.buying.get_default_bom(frm);
 		}
-		frm.toggle_reqd("supplier_warehouse", frm.doc.is_subcontracted==="Yes");
+
+		frm.toggle_reqd("supplier_warehouse", frm.doc.is_subcontracted);
 	},
 
 	update_stock: function(frm) {
@@ -569,5 +629,20 @@ frappe.ui.form.on("Purchase Invoice", {
 
 	company: function(frm) {
 		erpnext.accounts.dimensions.update_dimension(frm, frm.doctype);
+
+		if (frm.doc.company) {
+			frappe.call({
+				method:
+					"erpnext.accounts.party.get_party_account",
+				args: {
+					party_type: 'Supplier',
+					party: frm.doc.supplier,
+					company: frm.doc.company
+				},
+				callback: (response) => {
+					if (response) frm.set_value("credit_to", response.message);
+				},
+			});
+		}
 	},
 })

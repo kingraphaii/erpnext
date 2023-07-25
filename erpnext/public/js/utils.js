@@ -82,7 +82,11 @@ $.extend(erpnext, {
 			});
 			frappe.set_route('Form','Journal Entry', journal_entry.name);
 		});
-	}
+	},
+
+	route_to_pending_reposts: (args) => {
+		frappe.set_route('List', 'Repost Item Valuation', args);
+	},
 });
 
 
@@ -109,8 +113,25 @@ $.extend(erpnext.utils, {
 		}
 	},
 
+	view_serial_batch_nos: function(frm) {
+		let bundle_ids = frm.doc.items.filter(d => d.serial_and_batch_bundle);
+
+		if (bundle_ids?.length) {
+			frm.add_custom_button(__('Serial / Batch Nos'), () => {
+				frappe.route_options = {
+					"voucher_no": frm.doc.name,
+					"voucher_type": frm.doc.doctype,
+					"from_date": frm.doc.posting_date || frm.doc.transaction_date,
+					"to_date": frm.doc.posting_date || frm.doc.transaction_date,
+					"company": frm.doc.company,
+				};
+				frappe.set_route("query-report", "Serial and Batch Summary");
+			}, __('View'));
+		}
+	},
+
 	add_indicator_for_multicompany: function(frm, info) {
-		frm.dashboard.stats_area.removeClass('hidden');
+		frm.dashboard.stats_area.show();
 		frm.dashboard.stats_area_row.addClass('flex');
 		frm.dashboard.stats_area_row.css('flex-wrap', 'wrap');
 
@@ -198,11 +219,44 @@ $.extend(erpnext.utils, {
 						filters.splice(index, 0, {
 							"fieldname": dimension["fieldname"],
 							"label": __(dimension["label"]),
-							"fieldtype": "Link",
-							"options": dimension["document_type"]
+							"fieldtype": "MultiSelectList",
+							get_data: function(txt) {
+								return frappe.db.get_link_options(dimension["document_type"], txt);
+							},
 						});
 					}
 				});
+			}
+		});
+	},
+
+	add_inventory_dimensions: function(report_name, index) {
+		let filters = frappe.query_reports[report_name].filters;
+
+		frappe.call({
+			method: "erpnext.stock.doctype.inventory_dimension.inventory_dimension.get_inventory_dimensions",
+			callback: function(r) {
+				if (r.message && r.message.length) {
+					r.message.forEach((dimension) => {
+						let existing_filter = filters.filter(el => el.fieldname === dimension['fieldname']);
+
+						if (!existing_filter.length) {
+							filters.splice(index, 0, {
+								"fieldname": dimension["fieldname"],
+								"label": __(dimension["doctype"]),
+								"fieldtype": "MultiSelectList",
+								get_data: function(txt) {
+									return frappe.db.get_link_options(dimension["doctype"], txt);
+								},
+							});
+						} else {
+							existing_filter[0]['fieldtype'] = "MultiSelectList";
+							existing_filter[0]['get_data'] = function(txt) {
+								return frappe.db.get_link_options(dimension["doctype"], txt);
+							}
+						}
+					});
+				}
 			}
 		});
 	},
@@ -301,8 +355,71 @@ $.extend(erpnext.utils, {
 			}
 			frappe.ui.form.make_quick_entry(doctype, null, null, new_doc);
 		});
-	}
+	},
 
+	// check if payments app is installed on site, if not warn user.
+	check_payments_app: () => {
+		if (frappe.boot.versions && !frappe.boot.versions.payments) {
+			const marketplace_link = '<a href="https://frappecloud.com/marketplace/apps/payments">Marketplace</a>'
+			const github_link = '<a href="https://github.com/frappe/payments/">GitHub</a>'
+			const msg = __("payments app is not installed. Please install it from {0} or {1}", [marketplace_link, github_link])
+			frappe.msgprint(msg);
+		}
+
+	},
+
+	pick_serial_and_batch_bundle(frm, cdt, cdn, type_of_transaction, warehouse_field) {
+		let item_row = frappe.get_doc(cdt, cdn);
+		item_row.type_of_transaction = type_of_transaction;
+
+		frappe.db.get_value("Item", item_row.item_code, ["has_batch_no", "has_serial_no"])
+			.then((r) => {
+				item_row.has_batch_no = r.message.has_batch_no;
+				item_row.has_serial_no = r.message.has_serial_no;
+
+				frappe.require("assets/erpnext/js/utils/serial_no_batch_selector.js", function() {
+					new erpnext.SerialBatchPackageSelector(frm, item_row, (r) => {
+						if (r) {
+							let update_values = {
+								"serial_and_batch_bundle": r.name,
+								"qty": Math.abs(r.total_qty)
+							}
+
+							if (!warehouse_field) {
+								warehouse_field = "warehouse";
+							}
+
+							if (r.warehouse) {
+								update_values[warehouse_field] = r.warehouse;
+							}
+
+							frappe.model.set_value(item_row.doctype, item_row.name, update_values);
+						}
+					});
+				});
+		});
+	},
+
+	get_fiscal_year: function(date) {
+		if(!date) {
+			date = frappe.datetime.get_today();
+		}
+
+		let fiscal_year = '';
+		frappe.call({
+			method: "erpnext.accounts.utils.get_fiscal_year",
+			args: {
+				date: date
+			},
+			async: false,
+			callback: function(r) {
+				if (r.message) {
+					fiscal_year = r.message[0];
+				}
+			}
+		});
+		return fiscal_year;
+	}
 });
 
 erpnext.utils.select_alternate_items = function(opts) {
@@ -415,12 +532,9 @@ erpnext.utils.select_alternate_items = function(opts) {
 					qty = row.qty;
 				}
 				row[item_field] = d.alternate_item;
-				frm.script_manager.trigger(item_field, row.doctype, row.name)
-					.then(() => {
-						frappe.model.set_value(row.doctype, row.name, 'qty', qty);
-						frappe.model.set_value(row.doctype, row.name,
-							opts.original_item_field, d.item_code);
-					});
+				frappe.model.set_value(row.doctype, row.name, 'qty', qty);
+				frappe.model.set_value(row.doctype, row.name, opts.original_item_field, d.item_code);
+				frm.trigger(item_field, row.doctype, row.name);
 			});
 
 			refresh_field(opts.child_docname);
@@ -452,7 +566,20 @@ erpnext.utils.update_child_items = function(opts) {
 	const child_meta = frappe.get_meta(`${frm.doc.doctype} Item`);
 	const get_precision = (fieldname) => child_meta.fields.find(f => f.fieldname == fieldname).precision;
 
-	this.data = [];
+	this.data = frm.doc[opts.child_docname].map((d) => {
+		return {
+			"docname": d.name,
+			"name": d.name,
+			"item_code": d.item_code,
+			"delivery_date": d.delivery_date,
+			"schedule_date": d.schedule_date,
+			"conversion_factor": d.conversion_factor,
+			"qty": d.qty,
+			"rate": d.rate,
+			"uom": d.uom
+		}
+	});
+
 	const fields = [{
 		fieldtype:'Data',
 		fieldname:"docname",
@@ -465,7 +592,27 @@ erpnext.utils.update_child_items = function(opts) {
 		in_list_view: 1,
 		read_only: 0,
 		disabled: 0,
-		label: __('Item Code')
+		label: __('Item Code'),
+		get_query: function() {
+			let filters;
+			if (frm.doc.doctype == 'Sales Order') {
+				filters = {"is_sales_item": 1};
+			} else if (frm.doc.doctype == 'Purchase Order') {
+				if (frm.doc.is_subcontracted) {
+					if (frm.doc.is_old_subcontracting_flow) {
+						filters = {"is_sub_contracted_item": 1};
+					} else {
+						filters = {"is_stock_item": 0};
+					}
+				} else {
+					filters = {"is_purchase_item": 1};
+				}
+			}
+			return {
+				query: "erpnext.controllers.queries.item_query",
+				filters: filters
+			};
+		}
 	}, {
 		fieldtype:'Link',
 		fieldname:'uom',
@@ -523,14 +670,14 @@ erpnext.utils.update_child_items = function(opts) {
 		fields.splice(3, 0, {
 			fieldtype: 'Float',
 			fieldname: "conversion_factor",
-			in_list_view: 1,
 			label: __("Conversion Factor"),
 			precision: get_precision('conversion_factor')
 		})
 	}
 
-	const dialog = new frappe.ui.Dialog({
+	let dialog = new frappe.ui.Dialog({
 		title: __("Update Items"),
+		size: "extra-large",
 		fields: [
 			{
 				fieldname: "trans_items",
@@ -547,7 +694,7 @@ erpnext.utils.update_child_items = function(opts) {
 			},
 		],
 		primary_action: function() {
-			const trans_items = this.get_values()["trans_items"];
+			const trans_items = this.get_values()["trans_items"].filter((item) => !!item.item_code);
 			frappe.call({
 				method: 'erpnext.controllers.accounts_controller.update_child_qty_rate',
 				freeze: true,
@@ -565,23 +712,8 @@ erpnext.utils.update_child_items = function(opts) {
 			refresh_field("items");
 		},
 		primary_action_label: __('Update')
-	});
-
-	frm.doc[opts.child_docname].forEach(d => {
-		dialog.fields_dict.trans_items.df.data.push({
-			"docname": d.name,
-			"name": d.name,
-			"item_code": d.item_code,
-			"delivery_date": d.delivery_date,
-			"schedule_date": d.schedule_date,
-			"conversion_factor": d.conversion_factor,
-			"qty": d.qty,
-			"rate": d.rate,
-			"uom": d.uom
-		});
-		this.data = dialog.fields_dict.trans_items.df.data;
-		dialog.fields_dict.trans_items.grid.refresh();
 	})
+
 	dialog.show();
 }
 
@@ -682,14 +814,21 @@ erpnext.utils.map_current_doc = function(opts) {
 			setters: opts.setters,
 			get_query: opts.get_query,
 			add_filters_group: 1,
+			allow_child_item_selection: opts.allow_child_item_selection,
+			child_fieldname: opts.child_fieldname,
+			child_columns: opts.child_columns,
+			size: opts.size,
 			action: function(selections, args) {
 				let values = selections;
-				if(values.length === 0){
+				if (values.length === 0) {
 					frappe.msgprint(__("Please select {0}", [opts.source_doctype]))
 					return;
 				}
 				opts.source_name = values;
-				opts.setters = args;
+				if (opts.allow_child_item_selection) {
+					// args contains filtered child docnames
+					opts.args = args;
+				}
 				d.dialog.hide();
 				_map();
 			},
@@ -717,9 +856,13 @@ frappe.form.link_formatters['Item'] = function(value, doc) {
 }
 
 frappe.form.link_formatters['Employee'] = function(value, doc) {
-	if(doc && doc.employee_name && doc.employee_name !== value) {
-		return value? value + ': ' + doc.employee_name: doc.employee_name;
+	if (doc && value && doc.employee_name && doc.employee_name !== value && doc.employee === value) {
+		return value + ': ' + doc.employee_name;
+	} else if (!value && doc.doctype && doc.employee_name) {
+		// format blank value in child table
+		return doc.employee;
 	} else {
+		// if value is blank in report view or project name and name are the same, return as is
 		return value;
 	}
 }
@@ -751,104 +894,98 @@ $(document).on('app_ready', function() {
 
 // Show SLA dashboard
 $(document).on('app_ready', function() {
-	frappe.call({
-		method: 'erpnext.support.doctype.service_level_agreement.service_level_agreement.get_sla_doctypes',
-		callback: function(r) {
-			if (!r.message)
-				return;
+	$.each(frappe.boot.service_level_agreement_doctypes, function(_i, d) {
+		frappe.ui.form.on(d, {
+			onload: function(frm) {
+				if (!frm.doc.service_level_agreement)
+					return;
 
-			$.each(r.message, function(_i, d) {
-				frappe.ui.form.on(d, {
-					onload: function(frm) {
-						if (!frm.doc.service_level_agreement)
-							return;
-
-						frappe.call({
-							method: 'erpnext.support.doctype.service_level_agreement.service_level_agreement.get_service_level_agreement_filters',
-							args: {
-								doctype: frm.doc.doctype,
-								name: frm.doc.service_level_agreement,
-								customer: frm.doc.customer
-							},
-							callback: function (r) {
-								if (r && r.message) {
-									frm.set_query('priority', function() {
-										return {
-											filters: {
-												'name': ['in', r.message.priority],
-											}
-										};
-									});
-									frm.set_query('service_level_agreement', function() {
-										return {
-											filters: {
-												'name': ['in', r.message.service_level_agreements],
-											}
-										};
-									});
-								}
-							}
-						});
+				frappe.call({
+					method: 'erpnext.support.doctype.service_level_agreement.service_level_agreement.get_service_level_agreement_filters',
+					args: {
+						doctype: frm.doc.doctype,
+						name: frm.doc.service_level_agreement,
+						customer: frm.doc.customer
 					},
-
-					refresh: function(frm) {
-						if (frm.doc.status !== 'Closed' && frm.doc.service_level_agreement
-							&& frm.doc.agreement_status === 'Ongoing') {
-							frappe.call({
-								'method': 'frappe.client.get',
-								args: {
-									doctype: 'Service Level Agreement',
-									name: frm.doc.service_level_agreement
-								},
-								callback: function(data) {
-									let statuses = data.message.pause_sla_on;
-									const hold_statuses = [];
-									$.each(statuses, (_i, entry) => {
-										hold_statuses.push(entry.status);
-									});
-									if (hold_statuses.includes(frm.doc.status)) {
-										frm.dashboard.clear_headline();
-										let message = {'indicator': 'orange', 'msg': __('SLA is on hold since {0}', [moment(frm.doc.on_hold_since).fromNow(true)])};
-										frm.dashboard.set_headline_alert(
-											'<div class="row">' +
-												'<div class="col-xs-12">' +
-													'<span class="indicator whitespace-nowrap '+ message.indicator +'"><span>'+ message.msg +'</span></span> ' +
-												'</div>' +
-											'</div>'
-										);
-									} else {
-										set_time_to_resolve_and_response(frm, data.message.apply_sla_for_resolution);
+					callback: function (r) {
+						if (r && r.message) {
+							frm.set_query('priority', function() {
+								return {
+									filters: {
+										'name': ['in', r.message.priority],
 									}
-								}
+								};
 							});
-						} else if (frm.doc.service_level_agreement) {
-							frm.dashboard.clear_headline();
-
-							let agreement_status = (frm.doc.agreement_status == 'Fulfilled') ?
-								{'indicator': 'green', 'msg': 'Service Level Agreement has been fulfilled'} :
-								{'indicator': 'red', 'msg': 'Service Level Agreement Failed'};
-
-							frm.dashboard.set_headline_alert(
-								'<div class="row">' +
-									'<div class="col-xs-12">' +
-										'<span class="indicator whitespace-nowrap '+ agreement_status.indicator +'"><span class="hidden-xs">'+ agreement_status.msg +'</span></span> ' +
-									'</div>' +
-								'</div>'
-							);
+							frm.set_query('service_level_agreement', function() {
+								return {
+									filters: {
+										'name': ['in', r.message.service_level_agreements],
+									}
+								};
+							});
 						}
-					},
+					}
 				});
-			});
-		}
+			},
+
+			refresh: function(frm) {
+				if (frm.doc.status !== 'Closed' && frm.doc.service_level_agreement
+					&& ['First Response Due', 'Resolution Due'].includes(frm.doc.agreement_status)) {
+					frappe.call({
+						'method': 'frappe.client.get',
+						args: {
+							doctype: 'Service Level Agreement',
+							name: frm.doc.service_level_agreement
+						},
+						callback: function(data) {
+							let statuses = data.message.pause_sla_on;
+							const hold_statuses = [];
+							$.each(statuses, (_i, entry) => {
+								hold_statuses.push(entry.status);
+							});
+							if (hold_statuses.includes(frm.doc.status)) {
+								frm.dashboard.clear_headline();
+								let message = {'indicator': 'orange', 'msg': __('SLA is on hold since {0}', [moment(frm.doc.on_hold_since).fromNow(true)])};
+								frm.dashboard.set_headline_alert(
+									'<div class="row">' +
+										'<div class="col-xs-12">' +
+											'<span class="indicator whitespace-nowrap '+ message.indicator +'"><span>'+ message.msg +'</span></span> ' +
+										'</div>' +
+									'</div>'
+								);
+							} else {
+								set_time_to_resolve_and_response(frm, data.message.apply_sla_for_resolution);
+							}
+						}
+					});
+				} else if (frm.doc.service_level_agreement) {
+					frm.dashboard.clear_headline();
+
+					let agreement_status = (frm.doc.agreement_status == 'Fulfilled') ?
+						{'indicator': 'green', 'msg': 'Service Level Agreement has been fulfilled'} :
+						{'indicator': 'red', 'msg': 'Service Level Agreement Failed'};
+
+					frm.dashboard.set_headline_alert(
+						'<div class="row">' +
+							'<div class="col-xs-12">' +
+								'<span class="indicator whitespace-nowrap '+ agreement_status.indicator +'"><span class="hidden-xs">'+ agreement_status.msg +'</span></span> ' +
+							'</div>' +
+						'</div>'
+					);
+				}
+			},
+		});
 	});
 });
 
 function set_time_to_resolve_and_response(frm, apply_sla_for_resolution) {
 	frm.dashboard.clear_headline();
 
-	let time_to_respond = get_status(frm.doc.response_by_variance);
-	if (!frm.doc.first_responded_on && frm.doc.agreement_status === 'Ongoing') {
+	let time_to_respond;
+	if (!frm.doc.first_responded_on) {
 		time_to_respond = get_time_left(frm.doc.response_by, frm.doc.agreement_status);
+	} else {
+		time_to_respond = get_status(frm.doc.response_by, frm.doc.first_responded_on);
 	}
 
 	let alert = `
@@ -861,9 +998,11 @@ function set_time_to_resolve_and_response(frm, apply_sla_for_resolution) {
 
 
 	if (apply_sla_for_resolution) {
-		let time_to_resolve = get_status(frm.doc.resolution_by_variance);
-		if (!frm.doc.resolution_date && frm.doc.agreement_status === 'Ongoing') {
+		let time_to_resolve;
+		if (!frm.doc.resolution_date) {
 			time_to_resolve = get_time_left(frm.doc.resolution_by, frm.doc.agreement_status);
+		} else {
+			time_to_resolve = get_status(frm.doc.resolution_by, frm.doc.resolution_date);
 		}
 
 		alert += `
@@ -886,8 +1025,9 @@ function get_time_left(timestamp, agreement_status) {
 	return {'diff_display': diff_display, 'indicator': indicator};
 }
 
-function get_status(variance) {
-	if (variance > 0) {
+function get_status(expected, actual) {
+	const time_left = moment(expected).diff(moment(actual));
+	if (time_left >= 0) {
 		return {'diff_display': 'Fulfilled', 'indicator': 'green'};
 	} else {
 		return {'diff_display': 'Failed', 'indicator': 'red'};

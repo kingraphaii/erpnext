@@ -1,6 +1,6 @@
 // Copyright (c) 2018, Frappe Technologies Pvt. Ltd. and contributors
 // For license information, please see license.txt
-/* eslint-disable */
+
 
 frappe.query_reports["Lead Conversion Time"] = {
 	"filters": [
@@ -20,5 +20,3 @@ frappe.query_reports["Lead Conversion Time"] = {
 		},
 	]
 };
-
-
